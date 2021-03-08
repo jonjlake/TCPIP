@@ -19,10 +19,18 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
+#define PRINT_LOOP_PERIOD 100
+
 #define LISTEN_IP_ADDR "192.168.1.5"
 #define LISTEN_PORT 6500
 
 #define RECV_BUF_SIZE 11680
+
+/* Function prototypes */
+void process_connection(int new_fd);
+void print_stats(uint32_t msgs_corr_cyc, uint32_t msgs_recvd_cyc, uint32_t msgs_corr_tot,
+		uint32_t msgs_recvd_tot);
+float calc_pct_corr(uint32_t msgs_corr, uint32_t msgs_recvd);
 
 int main(int argc, char * argv[])
 {
@@ -45,26 +53,11 @@ int main(int argc, char * argv[])
 		return 1;
 	}
 
-	/* AF_UNSPEC so IPv6 or IPv4 addresses can be returned */
-/*	ZeroMemory( &hints, sizeof(hints) );
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	iResult = getaddrinfo(argv[1], DEFAULT_PORT, &hints, &result);
-	if (iResult != 0)
-	{
-		printf("getaddrinfo failed: %d\n", iResult);
-		WSACleanup();
-		return 1;
-	}*/
-
 	sockfd = socket(PF_INET, SOCK_STREAM, 0);
 	if (-1 == sockfd)
 	{
-		//printf("socket() call failed with errno %s\n", strerror(errno));
 		perror("socket() error");
-//		return -1;
+		return -1;
 	}
 	printf("Socket created\n");
 
@@ -76,7 +69,6 @@ int main(int argc, char * argv[])
 	retval = bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr);
 	if (-1 == retval)
 	{
-//		printf("bind() call failed\n");
 		perror("bind() error");
 		return -1;
 	}
@@ -106,34 +98,7 @@ int main(int argc, char * argv[])
 		}
 		else
 		{
-			char recv_buf[RECV_BUF_SIZE];
-			int recv_bytes;
-
-			printf("Accepted connection\n");
-			
-			while(1)
-			{
-				recv_bytes = recv(new_fd, recv_buf, sizeof(recv_buf), 0);
-				if (-1 == recv_bytes)
-				{
-					printf("recv() failed\n");
-					return -1;
-				}	
-				else if (0 == recv_bytes)
-				{
-					printf("Connection closed\n");
-					break;
-				}
-				else
-				{
-					/* Succees! Test message now */
-					if (!checksum_correct(recv_buf, recv_bytes, 1))
-					{
-						printf("CS incorrect: %d bytes\n", recv_bytes);
-					}
-					//printf("Received %d bytes\n", recv_bytes);
-				}		
-			}
+			process_connection(new_fd);	
 		}
 	}
 
@@ -142,3 +107,79 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
+void process_connection(int new_fd)
+{
+	char recv_buf[RECV_BUF_SIZE];
+	int recv_bytes;
+	uint32_t msgs_recvd_tot = 0;
+	uint32_t msgs_corr_tot = 0;
+	uint32_t msgs_recvd_cyc = 0;
+	uint32_t msgs_corr_cyc = 0;
+	uint32_t loop_count = 0;
+
+	printf("Accepted connection\n");
+
+	while(1)
+	{
+		loop_count++;
+
+		recv_bytes = recv(new_fd, recv_buf, sizeof(recv_buf), 0);
+		if (-1 == recv_bytes)
+		{
+			printf("recv() failed\n");
+			//return -1;
+			return;
+		}	
+		else if (0 == recv_bytes)
+		{
+			printf("Connection closed\n");
+			break;
+		}
+		else
+		{
+			msgs_recvd_cyc++;
+			/* Succees! Test message now */
+			if (!checksum_correct(recv_buf, recv_bytes, 1))
+			{
+				printf("CS incorrect: %d bytes\n", recv_bytes);
+			}
+			else
+			{
+				msgs_corr_cyc++;
+			}
+			//printf("Received %d bytes\n", recv_bytes);
+			if (0 == loop_count % PRINT_LOOP_PERIOD)
+			{
+				msgs_corr_tot += msgs_corr_cyc;
+				msgs_recvd_tot += msgs_recvd_cyc;
+				print_stats(msgs_corr_cyc, msgs_recvd_cyc, msgs_corr_tot,
+						msgs_recvd_tot);
+				msgs_corr_cyc = 0;
+				msgs_recvd_cyc = 0;
+			}
+		}		
+	}
+}
+
+float calc_pct_corr(uint32_t msgs_corr, uint32_t msgs_recvd)
+{
+	if (0 == msgs_corr || 0 == msgs_recvd)
+	{
+		return 0;
+	}
+
+	return 100.0 * (float) msgs_corr / (float) msgs_recvd;
+}
+
+void print_stats(uint32_t msgs_corr_cyc, uint32_t msgs_recvd_cyc, uint32_t msgs_corr_tot,
+		uint32_t msgs_recvd_tot)
+{
+	float pct_corr_cyc, pct_corr_tot;
+
+	pct_corr_cyc = calc_pct_corr(msgs_corr_cyc, msgs_recvd_cyc);
+	pct_corr_tot = calc_pct_corr(msgs_corr_tot, msgs_recvd_tot);
+
+	printf("Success: CYC: %f (%u/%u) TOT: %f (%u/%u)\n", 
+			pct_corr_cyc, msgs_corr_cyc, msgs_recvd_cyc,
+			pct_corr_tot, msgs_corr_tot, msgs_recvd_tot);	
+}
