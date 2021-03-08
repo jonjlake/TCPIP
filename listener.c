@@ -19,7 +19,8 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#define MYPORT 6500
+#define LISTEN_IP_ADDR "192.168.1.5"
+#define LISTEN_PORT 6500
 
 #define RECV_BUF_SIZE 11680
 
@@ -68,8 +69,8 @@ int main(int argc, char * argv[])
 	printf("Socket created\n");
 
 	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = htons(MYPORT);
-	my_addr.sin_addr.s_addr = inet_addr("192.168.1.5");
+	my_addr.sin_port = htons(LISTEN_PORT);
+	my_addr.sin_addr.s_addr = inet_addr(LISTEN_IP_ADDR);
 	memset(my_addr.sin_zero, '\0', sizeof my_addr.sin_zero);
 
 	retval = bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr);
@@ -95,7 +96,7 @@ int main(int argc, char * argv[])
 		//socklen_t addr_size;
 		int addr_size;
 
-		printf("Listening\n");
+		printf("Listening on %s:%u\n", LISTEN_IP_ADDR, LISTEN_PORT);
 
 		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
 		if (-1 == new_fd)
@@ -125,7 +126,12 @@ int main(int argc, char * argv[])
 				}
 				else
 				{
-					printf("Received %d bytes\n", recv_bytes);
+					/* Succees! Test message now */
+					if (!checksum_correct(recv_buf, recv_bytes, 1))
+					{
+						printf("CS incorrect: %d bytes\n", recv_bytes);
+					}
+					//printf("Received %d bytes\n", recv_bytes);
 				}		
 			}
 		}
@@ -136,9 +142,3 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
-bool checksum_is_correct(char *input_string, uint32_t input_size, uint32_t num_checksum_bytes)
-{
-	gen_checksum_invsum(input_string, input_size, num_checksum_bytes);
-
-	return true;
-}
