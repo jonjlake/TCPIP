@@ -19,12 +19,14 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 
-#define PRINT_LOOP_PERIOD 100
+#define PRINT_LOOP_PERIOD 10000
 
 #define LISTEN_IP_ADDR "192.168.1.5"
 #define LISTEN_PORT 6500
 
 #define RECV_BUF_SIZE 11680
+
+//#define DO_CHECKSUM
 
 /* Function prototypes */
 void process_connection(int new_fd);
@@ -90,15 +92,18 @@ int main(int argc, char * argv[])
 
 		printf("Listening on %s:%u\n", LISTEN_IP_ADDR, LISTEN_PORT);
 
-		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-		if (-1 == new_fd)
+		while(1)
 		{
-			printf("accept() call failed with errno %d\n", errno);
-			return -1;
-		}
-		else
-		{
-			process_connection(new_fd);	
+			new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+			if (-1 == new_fd)
+			{
+				printf("accept() call failed with errno %d\n", errno);
+				return -1;
+			}
+			else
+			{
+				process_connection(new_fd);	
+			}
 		}
 	}
 
@@ -116,6 +121,8 @@ void process_connection(int new_fd)
 	uint32_t msgs_recvd_cyc = 0;
 	uint32_t msgs_corr_cyc = 0;
 	uint32_t loop_count = 0;
+	uint64_t bytes_recvd_cyc = 0;
+	uint64_t bytes_recvd_tot = 0;
 
 	printf("Accepted connection\n");
 
@@ -123,8 +130,40 @@ void process_connection(int new_fd)
 	{
 		loop_count++;
 
-		recv_bytes = recv(new_fd, recv_buf, sizeof(recv_buf), 0);
-		if (-1 == recv_bytes)
+		//recv_bytes = recv(new_fd, recv_buf, sizeof(recv_buf), 0);
+		recv_bytes = recv(new_fd, recv_buf, RECV_BUF_SIZE, 0);
+		if (0 < recv_bytes)
+		{
+			msgs_recvd_cyc++;
+			/* Succees! Test message now */
+#ifdef DO_CHECKSUM	
+			if (!checksum_correct(recv_buf, recv_bytes, 1))
+#else
+			if (0) // Check number of bytes instead?
+#endif
+			{
+			//	printf("CS incorrect: %d bytes\n", recv_bytes);
+			}
+			else
+			{
+				msgs_corr_cyc++;
+				bytes_recvd_cyc += recv_bytes;
+			}
+			//printf("Received %d bytes\n", recv_bytes);
+			if (0 == loop_count % PRINT_LOOP_PERIOD)
+			{
+				bytes_recvd_tot += bytes_recvd_cyc;
+				printf("Bytes recvd cyc: %f M tot: %f M\n", (float)bytes_recvd_cyc / 1e6, (float)bytes_recvd_tot / 1e6);
+				msgs_corr_tot += msgs_corr_cyc;
+				msgs_recvd_tot += msgs_recvd_cyc;
+				print_stats(msgs_corr_cyc, msgs_recvd_cyc, msgs_corr_tot,
+						msgs_recvd_tot);
+				msgs_corr_cyc = 0;
+				msgs_recvd_cyc = 0;
+				bytes_recvd_cyc = 0;
+			}
+		}
+		else if (-1 == recv_bytes)
 		{
 			printf("recv() failed\n");
 			//return -1;
@@ -135,30 +174,9 @@ void process_connection(int new_fd)
 			printf("Connection closed\n");
 			break;
 		}
-		else
-		{
-			msgs_recvd_cyc++;
-			/* Succees! Test message now */
-			if (!checksum_correct(recv_buf, recv_bytes, 1))
-			{
-				printf("CS incorrect: %d bytes\n", recv_bytes);
-			}
-			else
-			{
-				msgs_corr_cyc++;
-			}
-			//printf("Received %d bytes\n", recv_bytes);
-			if (0 == loop_count % PRINT_LOOP_PERIOD)
-			{
-				msgs_corr_tot += msgs_corr_cyc;
-				msgs_recvd_tot += msgs_recvd_cyc;
-				print_stats(msgs_corr_cyc, msgs_recvd_cyc, msgs_corr_tot,
-						msgs_recvd_tot);
-				msgs_corr_cyc = 0;
-				msgs_recvd_cyc = 0;
-			}
-		}		
 	}
+	printf("Shutting down connection\n");
+	shutdown(new_fd, SD_BOTH);
 }
 
 float calc_pct_corr(uint32_t msgs_corr, uint32_t msgs_recvd)
