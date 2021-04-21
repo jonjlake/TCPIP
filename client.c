@@ -21,8 +21,8 @@
 
 #define PRINT_LOOP_PERIOD 100000
 
-#define LISTEN_IP_ADDR "192.168.1.5"
-#define LISTEN_PORT 6500
+#define SERVER_IP_ADDR "192.168.1.4"
+#define SERVER_PORT 6500
 
 #define RECV_BUF_SIZE 11680
 
@@ -37,7 +37,7 @@ float calc_pct_corr(uint32_t msgs_corr, uint32_t msgs_recvd);
 int main(int argc, char * argv[])
 {
 	int sockfd, retval;
-	struct sockaddr_in my_addr;
+	struct sockaddr_in srv_addr;
 
 	/* From tutorial */
 	struct addrinfo *result = NULL,
@@ -67,19 +67,27 @@ int main(int argc, char * argv[])
 	}
 	printf("Socket created\n");
 
-	my_addr.sin_family = AF_INET;
-	my_addr.sin_port = htons(LISTEN_PORT);
-	my_addr.sin_addr.s_addr = inet_addr(LISTEN_IP_ADDR);
-	memset(my_addr.sin_zero, '\0', sizeof my_addr.sin_zero);
+	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_port = htons(SERVER_PORT);
+	srv_addr.sin_addr.s_addr = inet_addr(SERVER_IP_ADDR);
+	memset(srv_addr.sin_zero, '\0', sizeof srv_addr.sin_zero);
 
-	retval = bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr);
+	if (-1 == connect(sockfd, (struct sockaddr*)&srv_addr, sizeof(srv_addr)))
+	{
+		printf("Connection failed\n");
+		return -1;
+	}
+
+	process_connection(sockfd);	
+
+/*	retval = bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr);
 	if (-1 == retval)
 	{
 		perror("bind() error");
 		return -1;
 	}
 	printf("Bound\n");
-
+*/
 	/*iResult = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *) &bOptVal, bOptLen);
 	if (SOCKET_ERROR == iResult)
 	{
@@ -89,7 +97,7 @@ int main(int argc, char * argv[])
 	else
 		wprintf(L"TCP_NODELAY: ON\n");*/
 
-	retval = listen(sockfd, 1);
+/*	retval = listen(sockfd, 1);
 	if (-1 == retval)
 	{
 		printf("listen() call failed with errno %d\n", errno);
@@ -123,12 +131,12 @@ int main(int argc, char * argv[])
 				}
 				else
 					wprintf(L"TCP_NODELAY: ON\n");*/
-
+/*
 				process_connection(new_fd);	
 			}
 		}
 	}
-
+*/
 	printf("Hello, world!\n");
 
 	return 0;
