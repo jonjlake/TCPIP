@@ -80,65 +80,6 @@ int main(int argc, char * argv[])
 
 	process_connection(sockfd);	
 
-/*	retval = bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr);
-	if (-1 == retval)
-	{
-		perror("bind() error");
-		return -1;
-	}
-	printf("Bound\n");
-*/
-	/*iResult = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char *) &bOptVal, bOptLen);
-	if (SOCKET_ERROR == iResult)
-	{
-		wprintf(L"setsockopt for TCP_NODELAY failed with error: %u\n", WSAGetLastError());
-		return -1;
-	}
-	else
-		wprintf(L"TCP_NODELAY: ON\n");*/
-
-/*	retval = listen(sockfd, 1);
-	if (-1 == retval)
-	{
-		printf("listen() call failed with errno %d\n", errno);
-		return -1;
-	}
-	else
-	{
-		int new_fd;
-		//struct sockaddr_storage their_addr;
-		struct sockaddr their_addr;	
-		//socklen_t addr_size;
-		int addr_size;
-
-		printf("Listening on %s:%u\n", LISTEN_IP_ADDR, LISTEN_PORT);
-
-		while(1)
-		{
-			new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-			if (-1 == new_fd)
-			{
-				printf("accept() call failed with errno %d\n", errno);
-				return -1;
-			}
-			else
-			{
-				/*iResult = setsockopt(new_fd, IPPROTO_TCP, TCP_NODELAY, (char *) &bOptVal, bOptLen);
-				if (SOCKET_ERROR == iResult)
-				{
-					wprintf(L"setsockopt for TCP_NODELAY failed with error: %u\n", WSAGetLastError());
-					return -1;
-				}
-				else
-					wprintf(L"TCP_NODELAY: ON\n");*/
-/*
-				process_connection(new_fd);	
-			}
-		}
-	}
-*/
-	printf("Hello, world!\n");
-
 	return 0;
 }
 
